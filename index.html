@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <title>사업가의무기창고 마진계산기</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #F7F8FA; font-size: 13px; color: #222; }
+
+    header { background: #1E3A5F; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 17px; font-weight: 700; }
+    header p  { font-size: 11px; color: #9DB4D0; margin-top: 2px; }
+    .hd-legend { font-size: 11px; color: #9DB4D0; text-align: right; line-height: 1.8; }
+
+    .toolbar { background: #fff; border-bottom: 1px solid #E0E4EA; padding: 10px 24px; display: flex; gap: 8px; align-items: center; }
+    .btn-add { background: #2563EB; color: #fff; border: none; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+    .btn-add:hover { background: #1D4ED8; }
+    .toolbar-note { margin-left: auto; font-size: 11px; color: #888; }
+    .toolbar-note b { color: #F59E0B; background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 4px; padding: 1px 7px; }
+
+    .table-outer { padding: 20px 24px; overflow-x: auto; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,0.08); }
+
+    thead tr.group-row th { background: #1E3A5F; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; padding: 8px 10px; text-align: center; border-right: 2px solid #2D5282; }
+    thead tr.col-row th { padding: 7px 8px; font-size: 11px; font-weight: 700; text-align: center; border-bottom: 2px solid #CBD5E0; border-right: 1px solid #E2E8F0; white-space: nowrap; }
+
+    .hd-input       { background: #FEF3C7; color: #92400E; }
+    .hd-price       { background: #DBEAFE; color: #1E40AF; }
+    .hd-margin-ad   { background: #D1FAE5; color: #065F46; }
+    .hd-margin-noad { background: #EDE9FE; color: #4C1D95; }
+    .hd-margin-ev   { background: #FEE2E2; color: #991B1B; }
+    .hd-margin-cp   { background: #FEF9C3; color: #713F12; }
+
+    tbody tr { background: #fff; }
+    tbody tr:hover { background: #EFF6FF; }
+    tbody tr.row-taxfree  { background: #F0FDF4 !important; }
+    tbody tr.row-taxfree:hover { background: #DCFCE7 !important; }
+    tbody tr.row-taxable  { background: #FFF7ED !important; }
+    tbody tr.row-taxable:hover { background: #FFEDD5 !important; }
+
+    td { padding: 5px 6px; border-right: 1px solid #E2E8F0; border-bottom: 1px solid #F0F0F0; text-align: center; vertical-align: middle; }
+    td:last-child { border-right: none; }
+
+    input.cell { width: 100%; border: 1.5px solid #FCD34D; background: #FFFBEB; border-radius: 4px; padding: 4px 6px; font-size: 12px; text-align: right; font-family: inherit; color: #222; outline: none; }
+    input.cell:focus { border-color: #F59E0B; box-shadow: 0 0 0 2px #FDE68A; }
+    input.cell-text { text-align: left; }
+    input.cell-ev   { border-color: #FCA5A5; background: #FFF5F5; }
+    input.cell-cp   { border-color: #FDE047; background: #FEFCE8; }
+
+    .out { font-size: 12px; font-weight: 500; }
+    .out-price { color: #1D4ED8; font-weight: 700; font-size: 13px; }
+    .out-margin-pos { color: #065F46; }
+    .out-margin-neg { color: #DC2626; }
+
+    .rate-hi  { color: #059669; font-weight: 700; }
+    .rate-mid { color: #D97706; font-weight: 700; }
+    .rate-low { color: #DC2626; font-weight: 700; }
+
+    .sep { border-right: 2px solid #CBD5E0 !important; }
+
+    .tax-toggle { display: flex; border-radius: 6px; overflow: hidden; border: 1.5px solid #CBD5E0; width: fit-content; margin: 0 auto; }
+    .tax-btn { padding: 3px 9px; font-size: 11px; font-weight: 700; cursor: pointer; border: none; background: #fff; color: #888; }
+    .tax-btn.active-free    { background: #16A34A; color: #fff; }
+    .tax-btn.active-taxable { background: #EA580C; color: #fff; }
+
+    .btn-row-del { background: none; border: none; cursor: pointer; color: #CBD5E0; font-size: 16px; padding: 2px 4px; border-radius: 4px; }
+    .btn-row-del:hover { color: #E53E3E; background: #FFF5F5; }
+
+    .footnote { padding: 12px 24px 28px; font-size: 11px; color: #777; line-height: 2; }
+    .footnote b { color: #444; }
+    .tag-free    { background: #16A34A; color: #fff; border-radius: 4px; padding: 1px 7px; font-size: 10px; font-weight: 700; }
+    .tag-taxable { background: #EA580C; color: #fff; border-radius: 4px; padding: 1px 7px; font-size: 10px; font-weight: 700; }
+
+    /* 붙여넣기 모달 */
+    .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:100; align-items:center; justify-content:center; }
+    .modal-bg.open { display:flex; }
+    .modal { background:#fff; border-radius:14px; padding:28px 32px; width:680px; max-width:95vw; box-shadow:0 8px 40px rgba(0,0,0,0.18); }
+    .modal h2 { font-size:16px; font-weight:700; color:#1E3A5F; margin-bottom:6px; }
+    .modal-desc { font-size:12px; color:#666; margin-bottom:14px; line-height:1.7; }
+    .modal-template { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:10px 14px; font-size:11px; color:#444; font-family:monospace; margin-bottom:14px; white-space:pre; overflow-x:auto; }
+    .modal textarea { width:100%; height:160px; border:1.5px solid #CBD5E0; border-radius:8px; padding:10px; font-size:12px; font-family:monospace; outline:none; resize:vertical; }
+    .modal textarea:focus { border-color:#2563EB; }
+    .modal-btns { display:flex; gap:10px; justify-content:flex-end; margin-top:14px; }
+    .btn-apply { background:#2563EB; color:#fff; border:none; padding:8px 20px; border-radius:7px; cursor:pointer; font-size:13px; font-weight:600; }
+    .btn-apply:hover { background:#1D4ED8; }
+    .btn-cancel { background:#F1F5F9; color:#555; border:none; padding:8px 16px; border-radius:7px; cursor:pointer; font-size:13px; }
+    .btn-cancel:hover { background:#E2E8F0; }
+    .btn-paste { background:#059669; color:#fff; border:none; padding:7px 16px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600; }
+    .btn-paste:hover { background:#047857; }
+    .modal-error { color:#DC2626; font-size:12px; margin-top:8px; display:none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🧮 사업가의무기창고 · 마진계산기</h1>
+    <p>노란 칸만 입력하면 모든 마진이 자동 계산됩니다</p>
+  </div>
+  <div class="hd-legend">
+    수수료: 일반·비광고 <b style="color:#7EC8E3">4%</b> &nbsp;|&nbsp; 행사가 <b style="color:#FCA5A5">10%</b><br>
+    <span style="background:#16A34A;color:#fff;border-radius:3px;padding:1px 6px;font-size:10px;">면세</span> 초록행 &nbsp;|&nbsp;
+    <span style="background:#EA580C;color:#fff;border-radius:3px;padding:1px 6px;font-size:10px;">과세</span> 주황행 (VAT 10% 추가 차감)
+  </div>
+</header>
+
+<div class="toolbar">
+  <button class="btn-add" onclick="addRow()">＋ 상품 추가</button>
+  <button class="btn-paste" onclick="openPasteModal()">📋 엑셀에서 일괄 입력</button>
+  <span class="toolbar-note"><b>노란 칸</b>만 입력 &nbsp;·&nbsp; 나머지 자동 계산</span>
+</div>
+
+<!-- 붙여넣기 모달 -->
+<div class="modal-bg" id="pasteModal">
+  <div class="modal">
+    <h2>📋 엑셀에서 일괄 입력</h2>
+    <div class="modal-desc">
+      엑셀에서 아래 순서로 데이터 선택 → 복사(Ctrl+C) → 아래 칸에 붙여넣기(Ctrl+V) → <b>적용</b> 버튼<br>
+      면세/과세·택배비원가적용은 붙여넣기 후 행별로 직접 선택해주세요.
+    </div>
+    <div class="modal-template">거래처명  상품명  옵션명  공급가  택배비  광고ROAS%  수수료%  소비자가  행사할인율%  쿠폰가</div>
+    <div class="modal-desc" style="margin-bottom:8px;color:#2563EB;font-weight:600;">📌 샘플 데이터 (확인 후 지우고 본인 데이터 붙여넣기)</div>
+    <textarea id="pasteArea">성공푸드	꿀고구마 2kg	20-50g	5400	0	400	4	10400	10	0
+성공푸드	꿀고구마 3kg	20-50g	6600	0	400	4	12600	10	0
+테스트몰	과세상품A	옵션1	8000	3000	300	4	15000	15	1000</textarea>
+    <div class="modal-error" id="pasteError"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closePasteModal()">취소</button>
+      <button class="btn-apply" onclick="applyPaste()">적용</button>
+    </div>
+  </div>
+</div>
+
+<div class="table-outer">
+<table id="mainTable">
+  <thead>
+    <tr class="group-row">
+      <th colspan="1" class="hd-input sep">세금</th>
+      <th colspan="3" class="hd-input sep">상품 정보</th>
+      <th colspan="8" class="hd-input sep">원가 입력</th>
+      <th colspan="3" class="hd-price sep">판매가 (자동계산)</th>
+      <th colspan="3" class="hd-margin-ad sep">일반 광고 판매</th>
+      <th colspan="2" class="hd-margin-noad sep">비광고 판매</th>
+      <th colspan="2" class="hd-margin-ev sep">행사가 판매</th>
+      <th></th>
+    </tr>
+    <tr class="col-row">
+      <th class="hd-input sep">면세/과세</th>
+      <th class="hd-input">거래처명</th>
+      <th class="hd-input">상품명</th>
+      <th class="hd-input sep">옵션명</th>
+
+      <th class="hd-input">공급가</th>
+      <th class="hd-input">택배비</th>
+      <th class="hd-input">택배비<br>원가적용</th>
+      <th class="hd-input">광고<br>ROAS%</th>
+      <th class="hd-input">수수료%</th>
+      <th class="hd-input">소비자가<br>(면세/과세)</th>
+      <th class="hd-input">행사<br>할인율(%)</th>
+      <th class="hd-input sep">쿠폰가</th>
+
+      <th class="hd-price">정상가</th>
+      <th class="hd-price">소비자가</th>
+      <th class="hd-price sep">행사가</th>
+
+      <th class="hd-margin-ad">광고비</th>
+      <th class="hd-margin-ad">마진</th>
+      <th class="hd-margin-ad sep">마진율</th>
+
+      <th class="hd-margin-noad">마진</th>
+      <th class="hd-margin-noad sep">마진율</th>
+
+      <th class="hd-margin-ev">마진</th>
+      <th class="hd-margin-ev sep">마진율</th>
+
+      <th style="background:#F9FAFB;width:28px;"></th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+</div>
+
+<div class="footnote">
+  <b>수식 안내</b><br>
+  · 광고판매수수료 = 소비자가 × 수수료% × 1.1 (면세) &nbsp;/&nbsp; 소비자가 × 수수료% (과세)<br>
+  · 광고비 = 소비자가 ÷ 광고ROAS% × 1.1 (면세) &nbsp;/&nbsp; 소비자가 ÷ 광고ROAS% (과세)<br>
+  · 일반광고마진 = 소비자가 − 공급가 − 택배비 − 판매수수료 − 광고비 [− VAT(과세만)]<br>
+  · 비광고판매마진 = 소비자가 − 공급가 − 택배비 − 판매수수료 [− VAT(과세만)]<br>
+  · 행사가 = 소비자가 × (1 − 할인율%) &nbsp;예: 10 입력 → 소비자가의 90% &nbsp;|&nbsp; 행사가 수수료 <b>10%</b><br>
+  · 쿠폰가 입력 시 광고·비광고·행사가 판매 마진 모두에서 자동 차감됨<br>
+  · 마진율 색상: <span class="rate-hi">녹색 ≥30%</span> &nbsp; <span class="rate-mid">노랑 15~30%</span> &nbsp; <span class="rate-low">빨강 &lt;15%</span>
+</div>
+
+<script>
+let rowId = 0;
+
+function fmt(n)     { return (isNaN(n)||!isFinite(n)) ? '-' : Math.round(n).toLocaleString('ko-KR') + '원'; }
+function fmtR(n)    { return (isNaN(n)||!isFinite(n)) ? '-' : (n*100).toFixed(1) + '%'; }
+function rateClass(n) {
+  if (isNaN(n)||!isFinite(n)) return '';
+  return n >= 0.30 ? 'rate-hi' : n >= 0.15 ? 'rate-mid' : 'rate-low';
+}
+
+function setTax(id, type) {
+  const tr = document.getElementById('row' + id);
+  tr.classList.remove('row-taxfree','row-taxable');
+  tr.classList.add(type === 'free' ? 'row-taxfree' : 'row-taxable');
+  document.getElementById('taxType' + id).value = type;
+  document.getElementById('btnFree'    + id).className = 'tax-btn' + (type==='free'    ? ' active-free'    : '');
+  document.getElementById('btnTaxable' + id).className = 'tax-btn' + (type==='taxable' ? ' active-taxable' : '');
+  calc(id);
+}
+
+function calc(id) {
+  const g       = s => parseFloat(document.getElementById(s + id).value) || 0;
+  const taxType = document.getElementById('taxType' + id).value;
+  const isFree  = taxType === 'free';
+
+  const supply   = g('supply');
+  const shipping = document.getElementById('shippingYN' + id).checked ? g('shipping') : 0;
+  const roas     = g('roas');           // % 그대로 (예: 400)
+  const feeRate  = g('fee') / 100;     // % → 소수 (예: 4 → 0.04)
+  const consumer = g('consumer');      // 소비자가(면세/과세)
+  const evDiscount = g('evRatio');      // 행사 할인율 % (예: 10 → 10% 할인)
+  const coupon     = g('coupon');       // 쿠폰가 (행별 입력)
+
+  // ── 실질 소비자가 (쿠폰 적용) ──
+  const effConsumer = coupon > 0 ? consumer - coupon : consumer;
+
+  // ── 판매가 ──
+  const normalPrice = effConsumer * 1.25;
+  const eventPrice  = evDiscount > 0 ? effConsumer * (1 - evDiscount / 100) : 0;
+
+  // ── 수수료 기준 ──
+  const feeBase = isFree ? effConsumer * 1.1 : effConsumer;
+  const vat     = isFree ? 0 : effConsumer * 0.1;
+
+  // ── 광고 판매 ──
+  const adCost      = roas > 0 ? feeBase / (roas / 100) : 0;
+  const fee_normal  = feeBase * feeRate;
+  const adMargin    = effConsumer - supply - shipping - fee_normal - adCost - vat;
+  const adRate      = effConsumer > 0 ? adMargin / effConsumer : NaN;
+
+  // ── 비광고 판매 ──
+  const noadMargin  = effConsumer - supply - shipping - fee_normal - vat;
+  const noadRate    = effConsumer > 0 ? noadMargin / effConsumer : NaN;
+
+  // ── 행사가 판매 (수수료 10%) ──
+  const evFeeBase   = isFree ? eventPrice * 1.1 : eventPrice;
+  const evVat       = isFree ? 0 : eventPrice * 0.1;
+  const evMargin    = eventPrice > 0 ? eventPrice - supply - shipping - (evFeeBase * 0.10) - evVat : NaN;
+  const evRate      = eventPrice > 0 ? evMargin / eventPrice : NaN;
+
+  // ── DOM 업데이트 ──
+  const set = (elId, val, cls) => {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = val;
+    if (cls !== undefined) el.className = 'out ' + cls;
+  };
+
+  set('oNormal'   + id, effConsumer > 0   ? fmt(normalPrice) : '-', 'out-price');
+  set('oConsumer' + id, effConsumer > 0   ? fmt(effConsumer) : '-', 'out-price');
+  set('oEvent'    + id, eventPrice > 0    ? fmt(eventPrice)  : '-', 'out-price');
+
+  set('oAdCost'   + id, effConsumer > 0 ? fmt(adCost)   : '-', '');
+  set('oAdMargin' + id, effConsumer > 0 ? fmt(adMargin) : '-', adMargin >= 0 ? 'out-margin-pos' : 'out-margin-neg');
+  set('oAdRate'   + id, effConsumer > 0 ? fmtR(adRate)  : '-', rateClass(adRate));
+
+  set('oNoadMargin' + id, effConsumer > 0 ? fmt(noadMargin) : '-', noadMargin >= 0 ? 'out-margin-pos' : 'out-margin-neg');
+  set('oNoadRate'   + id, effConsumer > 0 ? fmtR(noadRate)  : '-', rateClass(noadRate));
+
+  set('oEvMargin' + id, eventPrice > 0 ? fmt(evMargin) : '-', !isNaN(evMargin) && evMargin >= 0 ? 'out-margin-pos' : 'out-margin-neg');
+  set('oEvRate'   + id, eventPrice > 0 ? fmtR(evRate)  : '-', rateClass(evRate));
+
+}
+
+function recalcAll() {
+  for (let i = 1; i <= rowId; i++) {
+    if (document.getElementById('row' + i)) calc(i);
+  }
+}
+
+function addRow(d) {
+  d = d || {};
+  const id = ++rowId;
+  const tr = document.createElement('tr');
+  tr.id = 'row' + id;
+
+  tr.innerHTML = `
+    <td class="sep">
+      <input type="hidden" id="taxType${id}" value="${d.tax||'free'}">
+      <div class="tax-toggle">
+        <button class="tax-btn" id="btnFree${id}"    onclick="setTax(${id},'free')">면세</button>
+        <button class="tax-btn" id="btnTaxable${id}" onclick="setTax(${id},'taxable')">과세</button>
+      </div>
+    </td>
+    <td><input class="cell cell-text" id="client${id}" placeholder="거래처" maxlength="6" value="${d.client||''}" style="width:62px"></td>
+    <td><input class="cell cell-text" id="name${id}"   placeholder="상품명" value="${d.name||''}" oninput="calc(${id})"></td>
+    <td class="sep"><input class="cell cell-text" id="opt${id}" placeholder="옵션명" value="${d.opt||''}" oninput="calc(${id})"></td>
+
+    <td><input class="cell" id="supply${id}"   type="number" placeholder="0" max="10000000" value="${d.supply||''}"   oninput="calc(${id})" style="width:78px"></td>
+    <td><input class="cell" id="shipping${id}" type="number" placeholder="0" max="10000"    value="${d.shipping||''}" oninput="calc(${id})" style="width:54px"></td>
+    <td style="text-align:center;">
+      <input type="checkbox" id="shippingYN${id}" ${d.shippingYN?'checked':''} onchange="calc(${id})">
+    </td>
+    <td><input class="cell" id="roas${id}"     type="number" placeholder="400" value="${d.roas||''}"    oninput="calc(${id})" style="width:56px"></td>
+    <td><input class="cell" id="fee${id}"      type="number" placeholder="4"   value="${d.fee!=null?d.fee:4}"    oninput="calc(${id})" style="width:44px"></td>
+    <td><input class="cell" id="consumer${id}" type="number" placeholder="0" max="10000000" value="${d.consumer||''}" oninput="calc(${id})" style="width:78px"></td>
+    <td><input class="cell cell-ev" id="evRatio${id}" type="number" placeholder="예:10" value="${d.evRatio||''}" oninput="calc(${id})" step="1" min="1" max="99" style="width:56px" title="할인율 입력 (예: 10 → 10% 할인)"></td>
+    <td class="sep"><input class="cell cell-cp" id="coupon${id}" type="number" placeholder="0" max="10000" value="${d.coupon||''}" oninput="calc(${id})" style="width:54px"></td>
+
+    <td id="oNormal${id}"   class="out out-price">-</td>
+    <td id="oConsumer${id}" class="out out-price">-</td>
+    <td id="oEvent${id}"    class="out out-price sep">-</td>
+
+    <td id="oAdCost${id}"    class="out">-</td>
+    <td id="oAdMargin${id}"  class="out">-</td>
+    <td id="oAdRate${id}"    class="out sep">-</td>
+
+    <td id="oNoadMargin${id}" class="out">-</td>
+    <td id="oNoadRate${id}"   class="out sep">-</td>
+
+    <td id="oEvMargin${id}"  class="out">-</td>
+    <td id="oEvRate${id}"    class="out sep">-</td>
+
+    <td><button class="btn-row-del" onclick="delRow(${id})" title="삭제">✕</button></td>
+  `;
+  document.getElementById('tbody').appendChild(tr);
+  setTax(id, d.tax || 'free');
+  if (d.consumer) calc(id);
+}
+
+function delRow(id) {
+  const el = document.getElementById('row' + id);
+  if (el) el.remove();
+}
+
+function openPasteModal()  { document.getElementById('pasteModal').classList.add('open'); }
+function closePasteModal() { document.getElementById('pasteModal').classList.remove('open'); }
+
+function applyPaste() {
+  const raw   = document.getElementById('pasteArea').value.trim();
+  const errEl = document.getElementById('pasteError');
+  errEl.style.display = 'none';
+
+  if (!raw) { errEl.textContent = '데이터를 붙여넣어 주세요.'; errEl.style.display = 'block'; return; }
+
+  const lines = raw.split('\n').filter(l => l.trim());
+  let count = 0;
+
+  for (const line of lines) {
+    const cols = line.split('\t');
+    // 열 순서: 거래처명(0) 상품명(1) 옵션명(2) 공급가(3) 택배비(4) ROAS(5) 수수료(6) 소비자가(7) 할인율(8) 쿠폰가(9)
+    const d = {
+      client  : (cols[0] || '').trim(),
+      name    : (cols[1] || '').trim(),
+      opt     : (cols[2] || '').trim(),
+      supply  : parseFloat(cols[3]) || 0,
+      shipping: parseFloat(cols[4]) || 0,
+      roas    : parseFloat(cols[5]) || 400,
+      fee     : parseFloat(cols[6]) || 4,
+      consumer: parseFloat(cols[7]) || 0,
+      evRatio : parseFloat(cols[8]) || 0,
+      coupon  : parseFloat(cols[9]) || 0,
+    };
+    if (!d.name && !d.consumer) continue; // 빈 줄 스킵
+    addRow(d);
+    count++;
+  }
+
+  if (count === 0) {
+    errEl.textContent = '유효한 데이터가 없어요. 형식을 확인해주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+  closePasteModal();
+}
+
+// 샘플 데이터
+addRow({ client:'성공푸드', name:'꿀고구마 2kg 한입', opt:'20-50g', supply:5400, roas:400, fee:4, consumer:10400, evRatio:10 });
+addRow({ client:'성공푸드', name:'꿀고구마 3kg 한입', opt:'20-50g', supply:6600, roas:400, fee:4, consumer:12600, evRatio:10 });
+addRow({});
+</script>
+</body>
+</html>
