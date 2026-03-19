@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8"/>
-  <title>사업가의무기창고 마진계산기</title>
+  <title>마진계산기</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #F7F8FA; font-size: 13px; color: #222; }
@@ -63,8 +63,11 @@
     .tax-btn.active-free    { background: #16A34A; color: #fff; }
     .tax-btn.active-taxable { background: #EA580C; color: #fff; }
 
-    .btn-row-del { background: none; border: none; cursor: pointer; color: #CBD5E0; font-size: 16px; padding: 2px 4px; border-radius: 4px; }
-    .btn-row-del:hover { color: #E53E3E; background: #FFF5F5; }
+    .btn-row-del  { background: none; border: none; cursor: pointer; color: #CBD5E0; font-size: 16px; padding: 2px 4px; border-radius: 4px; }
+    .btn-row-del:hover  { color: #E53E3E; background: #FFF5F5; }
+    .btn-row-copy { background: none; border: none; cursor: pointer; color: #CBD5E0; font-size: 15px; padding: 2px 4px; border-radius: 4px; }
+    .btn-row-copy:hover { color: #2563EB; background: #EFF6FF; }
+    .row-num { font-size: 11px; color: #999; text-align: center; width: 24px; }
 
     .footnote { padding: 12px 24px 28px; font-size: 11px; color: #777; line-height: 2; }
     .footnote b { color: #444; }
@@ -88,13 +91,26 @@
     .btn-paste { background:#059669; color:#fff; border:none; padding:7px 16px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600; }
     .btn-paste:hover { background:#047857; }
     .modal-error { color:#DC2626; font-size:12px; margin-top:8px; display:none; }
+
+    /* 구글 시트 모달 */
+    .btn-sheet { background:#0F9D58; color:#fff; border:none; padding:7px 16px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600; }
+    .btn-sheet:hover { background:#0B7A44; }
+    .sheet-url-input { width:100%; border:1.5px solid #CBD5E0; border-radius:8px; padding:10px; font-size:13px; outline:none; margin-top:8px; }
+    .sheet-url-input:focus { border-color:#0F9D58; }
+    .btn-load { background:#0F9D58; color:#fff; border:none; padding:8px 20px; border-radius:7px; cursor:pointer; font-size:13px; font-weight:600; }
+    .btn-load:hover { background:#0B7A44; }
+    .sheet-loading { color:#0F9D58; font-size:12px; margin-top:8px; display:none; }
+    .sheet-select { width:100%; border:1.5px solid #CBD5E0; border-radius:8px; padding:10px; font-size:13px; outline:none; margin-top:8px; display:none; }
+    .sheet-select:focus { border-color:#0F9D58; }
+    .btn-get-sheets { background:#4B5563; color:#fff; border:none; padding:8px 16px; border-radius:7px; cursor:pointer; font-size:13px; font-weight:600; }
+    .btn-get-sheets:hover { background:#374151; }
   </style>
 </head>
 <body>
 
 <header>
   <div>
-    <h1>🧮 사업가의무기창고 · 마진계산기</h1>
+    <h1>🧮 마진계산기</h1>
     <p>노란 칸만 입력하면 모든 마진이 자동 계산됩니다</p>
   </div>
   <div class="hd-legend">
@@ -107,7 +123,35 @@
 <div class="toolbar">
   <button class="btn-add" onclick="addRow()">＋ 상품 추가</button>
   <button class="btn-paste" onclick="openPasteModal()">📋 엑셀에서 일괄 입력</button>
+  <button class="btn-sheet" onclick="openSheetModal()">📊 구글 시트 불러오기</button>
   <span class="toolbar-note"><b>노란 칸</b>만 입력 &nbsp;·&nbsp; 나머지 자동 계산</span>
+</div>
+
+<!-- 구글 시트 모달 -->
+<div class="modal-bg" id="sheetModal">
+  <div class="modal">
+    <h2>📊 구글 시트 불러오기</h2>
+    <div class="modal-desc">
+      구글 시트 공유 설정: <b>링크가 있는 모든 사용자 → 뷰어</b>로 설정 후 링크를 붙여넣으세요.<br>
+      시트 열 순서: <b>거래처명 · 상품명 · 옵션명 · 공급가 · 택배비 · 광고ROAS% · 수수료% · 소비자가 · 행사할인율% · 쿠폰가</b>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <input class="sheet-url-input" id="sheetUrl" type="text" placeholder="https://docs.google.com/spreadsheets/d/.../edit" style="margin-top:0;">
+      <button class="btn-get-sheets" onclick="getSheetList()">시트 목록</button>
+    </div>
+    <select class="sheet-select" id="sheetSelect">
+      <option value="">-- 시트 선택 --</option>
+    </select>
+    <div class="modal-desc" style="margin-top:10px; color:#666;">
+      📌 2행은 헤더로 자동 건너뜀 · 빈 행 자동 스킵
+    </div>
+    <div class="modal-error" id="sheetError"></div>
+    <div class="sheet-loading" id="sheetLoading">⏳ 불러오는 중...</div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeSheetModal()">취소</button>
+      <button class="btn-load" onclick="loadSheet()">불러오기</button>
+    </div>
+  </div>
 </div>
 
 <!-- 붙여넣기 모달 -->
@@ -135,6 +179,7 @@
 <table id="mainTable">
   <thead>
     <tr class="group-row">
+      <th style="background:#1E3A5F;border-right:2px solid #2D5282;"></th>
       <th colspan="1" class="hd-input sep">세금</th>
       <th colspan="3" class="hd-input sep">상품 정보</th>
       <th colspan="8" class="hd-input sep">원가 입력</th>
@@ -145,6 +190,7 @@
       <th></th>
     </tr>
     <tr class="col-row">
+      <th style="background:#F9FAFB;width:28px;font-size:11px;color:#888;text-align:center;">#</th>
       <th class="hd-input sep">면세/과세</th>
       <th class="hd-input">거래처명</th>
       <th class="hd-input">상품명</th>
@@ -193,6 +239,46 @@
 
 <script>
 let rowId = 0;
+let isLoading = false;
+
+// ── localStorage 저장/불러오기 ──
+const STORAGE_KEY = 'marginCalcData';
+
+function saveData() {
+  if (isLoading) return;
+  const rows = [];
+  for (let i = 1; i <= rowId; i++) {
+    if (!document.getElementById('row' + i)) continue;
+    rows.push({
+      tax      : document.getElementById('taxType'    + i).value,
+      client   : document.getElementById('client'     + i).value,
+      name     : document.getElementById('name'       + i).value,
+      opt      : document.getElementById('opt'        + i).value,
+      supply   : document.getElementById('supply'     + i).value,
+      shipping : document.getElementById('shipping'   + i).value,
+      shippingYN: document.getElementById('shippingYN' + i).checked,
+      roas     : document.getElementById('roas'       + i).value,
+      fee      : document.getElementById('fee'        + i).value,
+      consumer : document.getElementById('consumer'   + i).value,
+      evRatio  : document.getElementById('evRatio'    + i).value,
+      coupon   : document.getElementById('coupon'     + i).value,
+    });
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+}
+
+function loadSavedData() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (!saved) return false;
+  try {
+    const rows = JSON.parse(saved);
+    if (!rows.length) return false;
+    isLoading = true;
+    rows.forEach(d => addRow(d));
+    isLoading = false;
+    return true;
+  } catch(e) { return false; }
+}
 
 function fmt(n)     { return (isNaN(n)||!isFinite(n)) ? '-' : Math.round(n).toLocaleString('ko-KR') + '원'; }
 function fmtR(n)    { return (isNaN(n)||!isFinite(n)) ? '-' : (n*100).toFixed(1) + '%'; }
@@ -209,6 +295,7 @@ function setTax(id, type) {
   document.getElementById('btnFree'    + id).className = 'tax-btn' + (type==='free'    ? ' active-free'    : '');
   document.getElementById('btnTaxable' + id).className = 'tax-btn' + (type==='taxable' ? ' active-taxable' : '');
   calc(id);
+  saveData();
 }
 
 function calc(id) {
@@ -273,6 +360,7 @@ function calc(id) {
   set('oEvMargin' + id, eventPrice > 0 ? fmt(evMargin) : '-', !isNaN(evMargin) && evMargin >= 0 ? 'out-margin-pos' : 'out-margin-neg');
   set('oEvRate'   + id, eventPrice > 0 ? fmtR(evRate)  : '-', rateClass(evRate));
 
+  saveData();
 }
 
 function recalcAll() {
@@ -288,6 +376,7 @@ function addRow(d) {
   tr.id = 'row' + id;
 
   tr.innerHTML = `
+    <td class="row-num"><span class="row-num-val">-</span></td>
     <td class="sep">
       <input type="hidden" id="taxType${id}" value="${d.tax||'free'}">
       <div class="tax-toggle">
@@ -324,16 +413,47 @@ function addRow(d) {
     <td id="oEvMargin${id}"  class="out">-</td>
     <td id="oEvRate${id}"    class="out sep">-</td>
 
-    <td><button class="btn-row-del" onclick="delRow(${id})" title="삭제">✕</button></td>
+    <td>
+      <button class="btn-row-copy" onclick="copyRow(${id})" title="복사">⧉</button>
+      <button class="btn-row-del"  onclick="delRow(${id})"  title="삭제">✕</button>
+    </td>
   `;
   document.getElementById('tbody').appendChild(tr);
   setTax(id, d.tax || 'free');
   if (d.consumer) calc(id);
+  updateRowNumbers();
+  saveData();
+}
+
+function updateRowNumbers() {
+  const rows = document.getElementById('tbody').querySelectorAll('tr');
+  rows.forEach((tr, idx) => {
+    const span = tr.querySelector('.row-num-val');
+    if (span) span.textContent = idx + 1;
+  });
+}
+
+function copyRow(id) {
+  const g = s => document.getElementById(s + id);
+  addRow({
+    tax       : g('taxType').value,
+    client    : g('client').value,
+    name      : g('name').value,
+    opt       : g('opt').value,
+    supply    : g('supply').value,
+    shipping  : g('shipping').value,
+    shippingYN: g('shippingYN').checked,
+    roas      : g('roas').value,
+    fee       : g('fee').value,
+    consumer  : g('consumer').value,
+    evRatio   : g('evRatio').value,
+    coupon    : g('coupon').value,
+  });
 }
 
 function delRow(id) {
   const el = document.getElementById('row' + id);
-  if (el) el.remove();
+  if (el) { el.remove(); updateRowNumbers(); saveData(); }
 }
 
 function openPasteModal()  { document.getElementById('pasteModal').classList.add('open'); }
@@ -377,10 +497,138 @@ function applyPaste() {
   closePasteModal();
 }
 
-// 샘플 데이터
-addRow({ client:'성공푸드', name:'꿀고구마 2kg 한입', opt:'20-50g', supply:5400, roas:400, fee:4, consumer:10400, evRatio:10 });
-addRow({ client:'성공푸드', name:'꿀고구마 3kg 한입', opt:'20-50g', supply:6600, roas:400, fee:4, consumer:12600, evRatio:10 });
-addRow({});
+// ── 구글 시트 연동 ──
+const SHEETS_API_KEY = 'AIzaSyCA89bvvEac5UsOE6iHIXLA08lUnIJ_a0w';
+
+function openSheetModal()  { document.getElementById('sheetModal').classList.add('open'); }
+function closeSheetModal() {
+  document.getElementById('sheetModal').classList.remove('open');
+  document.getElementById('sheetError').style.display = 'none';
+  document.getElementById('sheetLoading').style.display = 'none';
+  document.getElementById('sheetSelect').style.display = 'none';
+  document.getElementById('sheetSelect').innerHTML = '<option value="">-- 시트 선택 --</option>';
+}
+
+async function getSheetList() {
+  const url    = document.getElementById('sheetUrl').value.trim();
+  const errEl  = document.getElementById('sheetError');
+  const loadEl = document.getElementById('sheetLoading');
+  const sel    = document.getElementById('sheetSelect');
+  errEl.style.display = 'none';
+
+  const sheetId = extractSheetId(url);
+  if (!sheetId) {
+    errEl.textContent = '올바른 구글 시트 링크를 붙여넣어 주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  loadEl.style.display = 'block';
+  sel.style.display = 'none';
+
+  try {
+    const res  = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?key=${SHEETS_API_KEY}&fields=sheets.properties.title`);
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error?.message || '목록 가져오기 실패');
+
+    const sheets = json.sheets || [];
+    sel.innerHTML = '<option value="">-- 시트 선택 --</option>' +
+      sheets.map(s => `<option value="${s.properties.title}">${s.properties.title}</option>`).join('');
+    sel.style.display = 'block';
+  } catch(e) {
+    errEl.textContent = '오류: ' + e.message;
+    errEl.style.display = 'block';
+  } finally {
+    loadEl.style.display = 'none';
+  }
+}
+
+function extractSheetId(url) {
+  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
+}
+
+async function loadSheet() {
+  const url     = document.getElementById('sheetUrl').value.trim();
+  const errEl   = document.getElementById('sheetError');
+  const loadEl  = document.getElementById('sheetLoading');
+  errEl.style.display = 'none';
+
+  const sheetId   = extractSheetId(url);
+  const sheetName = document.getElementById('sheetSelect').value;
+
+  if (!sheetId) {
+    errEl.textContent = '올바른 구글 시트 링크를 붙여넣어 주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!sheetName) {
+    errEl.textContent = '"시트 목록" 버튼을 눌러 시트를 선택해주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  loadEl.style.display = 'block';
+
+  try {
+    const range  = encodeURIComponent(`${sheetName}!A:J`);
+    const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${SHEETS_API_KEY}`;
+    const res  = await fetch(apiUrl);
+    const json = await res.json();
+
+    if (!res.ok) {
+      const msg = json.error?.message || '불러오기 실패';
+      throw new Error(msg);
+    }
+
+    const rows = json.values || [];
+    if (rows.length <= 1) {
+      throw new Error('데이터가 없어요. 시트에 내용이 있는지 확인해주세요.');
+    }
+
+    let count = 0;
+    for (let i = 1; i < rows.length; i++) {   // 1행은 헤더 스킵
+      const cols = rows[i];
+      const name = (cols[1] || '').trim();
+      const consumer = parseFloat(cols[7]) || 0;
+      const opt = (cols[2] || '').trim();
+      if (!name && !opt && !consumer) continue;  // 빈 행 스킵
+
+      addRow({
+        client  : (cols[0] || '').trim(),
+        name    : name,
+        opt     : opt,
+        supply  : parseFloat(cols[3]) || 0,
+        shipping: parseFloat(cols[4]) || 0,
+        roas    : parseFloat(cols[5]) || 400,
+        fee     : parseFloat(cols[6]) ?? 4,
+        consumer: consumer,
+        evRatio : parseFloat(cols[8]) || 0,
+        coupon  : parseFloat(cols[9]) || 0,
+      });
+      count++;
+    }
+
+    loadEl.style.display = 'none';
+    if (count === 0) {
+      throw new Error('유효한 데이터가 없어요. 열 순서를 확인해주세요.');
+    }
+    closeSheetModal();
+    alert(`✅ ${count}개 상품을 불러왔습니다!`);
+
+  } catch (e) {
+    loadEl.style.display = 'none';
+    errEl.textContent = '오류: ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+// 저장된 데이터 불러오기, 없으면 샘플 데이터
+if (!loadSavedData()) {
+  addRow({ client:'성공푸드', name:'꿀고구마 2kg 한입', opt:'20-50g', supply:5400, roas:400, fee:4, consumer:10400, evRatio:10 });
+  addRow({ client:'성공푸드', name:'꿀고구마 3kg 한입', opt:'20-50g', supply:6600, roas:400, fee:4, consumer:12600, evRatio:10 });
+  addRow({});
+}
 </script>
 </body>
 </html>
