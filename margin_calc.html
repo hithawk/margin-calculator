@@ -137,11 +137,8 @@
     </div>
     <div style="display:flex;gap:8px;margin-top:8px;">
       <input class="sheet-url-input" id="sheetUrl" type="text" placeholder="https://docs.google.com/spreadsheets/d/.../edit" style="margin-top:0;">
-      <button class="btn-get-sheets" onclick="getSheetList()">시트 목록</button>
     </div>
-    <select class="sheet-select" id="sheetSelect">
-      <option value="">-- 시트 선택 --</option>
-    </select>
+    <input class="sheet-url-input" id="sheetName" type="text" placeholder="시트 이름 입력 (예: Sheet1, 1월가격표)" style="margin-top:8px;">
     <div class="modal-desc" style="margin-top:10px; color:#666;">
       📌 2행은 헤더로 자동 건너뜀 · 빈 행 자동 스킵
     </div>
@@ -499,49 +496,30 @@ function applyPaste() {
 }
 
 // ── 구글 시트 연동 ──
-const SHEETS_API_KEY = 'AIzaSyCA89bvvEac5UsOE6iHIXLA08lUnIJ_a0w';
-
 function openSheetModal()  { document.getElementById('sheetModal').classList.add('open'); }
 function closeSheetModal() {
   document.getElementById('sheetModal').classList.remove('open');
   document.getElementById('sheetError').style.display = 'none';
   document.getElementById('sheetLoading').style.display = 'none';
-  document.getElementById('sheetSelect').style.display = 'none';
-  document.getElementById('sheetSelect').innerHTML = '<option value="">-- 시트 선택 --</option>';
 }
 
-async function getSheetList() {
-  const url    = document.getElementById('sheetUrl').value.trim();
-  const errEl  = document.getElementById('sheetError');
-  const loadEl = document.getElementById('sheetLoading');
-  const sel    = document.getElementById('sheetSelect');
-  errEl.style.display = 'none';
-
-  const sheetId = extractSheetId(url);
-  if (!sheetId) {
-    errEl.textContent = '올바른 구글 시트 링크를 붙여넣어 주세요.';
-    errEl.style.display = 'block';
-    return;
+function parseCSV(text) {
+  const rows = [];
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { cols.push(cur); cur = ''; }
+      else { cur += c; }
+    }
+    cols.push(cur);
+    rows.push(cols);
   }
-
-  loadEl.style.display = 'block';
-  sel.style.display = 'none';
-
-  try {
-    const res  = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?key=${SHEETS_API_KEY}&fields=sheets.properties.title`);
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error?.message || '목록 가져오기 실패');
-
-    const sheets = json.sheets || [];
-    sel.innerHTML = '<option value="">-- 시트 선택 --</option>' +
-      sheets.map(s => `<option value="${s.properties.title}">${s.properties.title}</option>`).join('');
-    sel.style.display = 'block';
-  } catch(e) {
-    errEl.textContent = '오류: ' + e.message;
-    errEl.style.display = 'block';
-  } finally {
-    loadEl.style.display = 'none';
-  }
+  return rows;
 }
 
 function extractSheetId(url) {
@@ -550,21 +528,20 @@ function extractSheetId(url) {
 }
 
 async function loadSheet() {
-  const url     = document.getElementById('sheetUrl').value.trim();
-  const errEl   = document.getElementById('sheetError');
-  const loadEl  = document.getElementById('sheetLoading');
+  const url       = document.getElementById('sheetUrl').value.trim();
+  const sheetName = document.getElementById('sheetName').value.trim();
+  const errEl     = document.getElementById('sheetError');
+  const loadEl    = document.getElementById('sheetLoading');
   errEl.style.display = 'none';
 
-  const sheetId   = extractSheetId(url);
-  const sheetName = document.getElementById('sheetSelect').value;
-
+  const sheetId = extractSheetId(url);
   if (!sheetId) {
     errEl.textContent = '올바른 구글 시트 링크를 붙여넣어 주세요.';
     errEl.style.display = 'block';
     return;
   }
   if (!sheetName) {
-    errEl.textContent = '"시트 목록" 버튼을 눌러 시트를 선택해주세요.';
+    errEl.textContent = '시트 이름을 입력해주세요. (구글 시트 하단 탭 이름)';
     errEl.style.display = 'block';
     return;
   }
@@ -572,17 +549,13 @@ async function loadSheet() {
   loadEl.style.display = 'block';
 
   try {
-    const range  = encodeURIComponent(`${sheetName}!A:J`);
-    const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${SHEETS_API_KEY}`;
+    const apiUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
     const res  = await fetch(apiUrl);
-    const json = await res.json();
+    if (!res.ok) throw new Error('시트를 불러올 수 없어요. 링크와 시트 이름을 확인해주세요.');
 
-    if (!res.ok) {
-      const msg = json.error?.message || '불러오기 실패';
-      throw new Error(msg);
-    }
+    const text = await res.text();
+    const rows = parseCSV(text);
 
-    const rows = json.values || [];
     if (rows.length <= 1) {
       throw new Error('데이터가 없어요. 시트에 내용이 있는지 확인해주세요.');
     }
