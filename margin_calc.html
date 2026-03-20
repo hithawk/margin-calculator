@@ -272,9 +272,9 @@ function loadSavedData() {
     if (!rows.length) return false;
     isLoading = true;
     rows.forEach(d => addRow(d));
-    isLoading = false;
     return true;
   } catch(e) { return false; }
+  finally { isLoading = false; }
 }
 
 function fmt(n)     { return (isNaN(n)||!isFinite(n)) ? '-' : Math.round(n).toLocaleString('ko-KR') + '원'; }
